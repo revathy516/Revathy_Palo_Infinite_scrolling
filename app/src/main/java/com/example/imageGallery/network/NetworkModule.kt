@@ -11,7 +11,7 @@ object NetworkModule {
 
     private const val CACHE_SIZE = 10L * 1024L * 1024L // 10MB
 
-    fun provideOkHttpClient(context: Context): OkHttpClient {
+    private fun provideOkHttpClient(context: Context): OkHttpClient {
         val cacheDir = File(context.cacheDir, "http_cache")
         val cache = Cache(cacheDir, CACHE_SIZE)
 

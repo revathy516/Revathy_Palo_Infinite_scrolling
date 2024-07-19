@@ -1,5 +1,5 @@
 // ImageRepository.kt
-package com.example.imageGallery.repository
+package com.example.imageGallery.data
 
 import com.example.imageGallery.ui.ImageItem
 import com.squareup.moshi.Moshi

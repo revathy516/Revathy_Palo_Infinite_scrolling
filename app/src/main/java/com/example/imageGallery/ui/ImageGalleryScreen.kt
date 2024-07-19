@@ -35,7 +35,7 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
     val images by viewModel.images.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    var pageSize by remember { mutableStateOf(20) }
+    var pageSize by remember { mutableStateOf(20) } // default pageSize value
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     Surface(color = MaterialTheme.colors.background) {
@@ -129,7 +129,9 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
     }
 }
 
-
+/**
+ * Image Item to be displayed the grid view
+ */
 @Composable
 fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context) {
     Column(
@@ -176,6 +178,9 @@ fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context) {
     }
 }
 
+/**
+ * The function to handle the sharing the image
+ */
 private fun shareImage(image: ImageItem, context: Context) {
     val file = File(context.cacheDir, "image_to_share.jpg")
     try {
