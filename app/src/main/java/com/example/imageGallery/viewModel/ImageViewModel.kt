@@ -77,9 +77,21 @@ class ImageViewModel : ViewModel() {
                 hasMoreData = response.isNotEmpty()
                 _errorMessage.value = null
             } catch (e: HttpException) {
-                _errorMessage.value = "Error: ${e.message}"
+                when (e.code()) {
+                    400 -> _errorMessage.value = "Bad Request: The server could not understand the request."
+                    401 -> _errorMessage.value = "Unauthorized: Access is denied due to invalid credentials."
+                    403 -> _errorMessage.value = "Forbidden: You do not have permission to access this resource."
+                    404 -> _errorMessage.value = "Not Found: The requested resource could not be found."
+                    500 -> _errorMessage.value = "Internal Server Error: The server encountered an error."
+                    502 -> _errorMessage.value = "Bad Gateway: The server received an invalid response from the upstream server."
+                    503 -> _errorMessage.value = "Service Unavailable: The server is currently unable to handle the request."
+                    504 -> _errorMessage.value = "Gateway Timeout: The server took too long to respond."
+                    else -> _errorMessage.value = "Error: ${e.message()}"
+                }
+            } catch (e: IOException) {
+                _errorMessage.value = "Network error occurred. Please check your internet connection."
             } catch (e: Exception) {
-                _errorMessage.value = "Unknown error occurred."
+                _errorMessage.value = "An unknown error occurred."
             } finally {
                 _isLoading.value = false
             }
