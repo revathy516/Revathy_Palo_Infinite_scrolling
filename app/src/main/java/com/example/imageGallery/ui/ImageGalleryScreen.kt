@@ -41,7 +41,7 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
     val images by viewModel.images.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    var pageSize by remember { mutableStateOf(20) }
+    var pageSizeInput by remember { mutableStateOf("20") }
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     // Launcher for permission request
@@ -59,22 +59,30 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextField(
-                    value = pageSize.toString(),
+                    value = pageSizeInput,
                     onValueChange = { newSize ->
-                        pageSize = newSize.toIntOrNull() ?: 20
+                        // Update the input value
+                        pageSizeInput = newSize
                     },
                     label = { Text("Page Size") },
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = { viewModel.setPageSize(pageSize) }) {
+                Button(onClick = {
+                    // Convert input to integer and set page size
+                    val newSize = pageSizeInput.toIntOrNull() ?: 20
+                    viewModel.setPageSize(newSize)
+                }) {
                     Text("Set Page Size")
                 }
             }
 
             // Error handling
             if (errorMessage != null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = errorMessage!!, color = MaterialTheme.colors.error)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -119,7 +127,6 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
         }
     }
 }
-
 @Composable
 fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context, permissionLauncher: ManagedActivityResultLauncher<String, Boolean>) {
     Column(
