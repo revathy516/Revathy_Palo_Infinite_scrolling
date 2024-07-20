@@ -28,6 +28,9 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URL
 
+/**
+ * ViewModel class to do logic for displaying the items , setting the pageSize by user and save, share functionality.
+ */
 class ImageViewModel : ViewModel() {
 
     private val _images = MutableStateFlow<List<ImageItem>>(emptyList())

@@ -2,11 +2,7 @@ package com.example.imageGallery.ui
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,25 +19,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.imageGallery.R
 import com.example.imageGallery.viewModel.ImageViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.net.URL
 
+/**
+ * UI to display the images in recyclerview with infinite loading  using jetpack compose library.
+ */
 @Composable
 fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
     val context = LocalContext.current
     val images by viewModel.images.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    var pageSizeInput by remember { mutableStateOf("20") }
+    var pageSizeInput by remember { mutableStateOf("20") } //Default value of pageSize to be displayed
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     // Launcher for permission request
@@ -127,6 +121,10 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
         }
     }
 }
+
+/**
+ * UI function to construct and display each item in the grid recyclerView.
+ */
 @Composable
 fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context, permissionLauncher: ManagedActivityResultLauncher<String, Boolean>) {
     Column(
@@ -180,28 +178,3 @@ fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context, per
     }
 }
 
-private fun shareImage(image: ImageItem, context: Context) {
-    val file = File(context.cacheDir, "image_to_share.jpg")
-    try {
-        val bitmap = BitmapFactory.decodeStream(URL(image.download_url).openStream())
-        FileOutputStream(file).use { fos ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
-        }
-
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
-        val shareIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_STREAM, uri)
-            type = "image/jpeg"
-        }
-
-        context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
-    } catch (e: IOException) {
-        e.printStackTrace()
-        Toast.makeText(context, "Failed to share image", Toast.LENGTH_SHORT).show()
-    }
-}

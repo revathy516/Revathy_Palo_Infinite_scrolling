@@ -12,7 +12,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.imageGallery.ui.ImageGalleryScreen
 import com.example.imageGallery.viewModel.ImageViewModel
@@ -33,13 +32,7 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Permission denied. Unable to save image.", Toast.LENGTH_SHORT).show()
         }
     }
-    private fun checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                Companion.REQUEST_CODE_PERMISSION
-            )
-        }
-    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == Companion.REQUEST_CODE_PERMISSION) {
