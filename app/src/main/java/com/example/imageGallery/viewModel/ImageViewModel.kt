@@ -49,6 +49,7 @@ class ImageViewModel : ViewModel() {
         private set
     private var currentPage = 1
     private var hasMoreData = true
+    private var isSetPageCalled= false
 
     private val apiService = RetrofitInstance.getRetrofitInstance().create(ApiService::class.java)
 
@@ -62,6 +63,7 @@ class ImageViewModel : ViewModel() {
         pageSize = size
         currentPage = 1
         hasMoreData = true
+        isSetPageCalled = true
         _images.value = _images.value.take(pageSize)
         loadImages()
     }
@@ -69,7 +71,9 @@ class ImageViewModel : ViewModel() {
     fun loadImages() {
         if (!hasMoreData) return
         viewModelScope.launch {
+            if(!isSetPageCalled){
             _isLoading.value = true
+            }
             try {
                 val response = apiService.fetchImages(page = currentPage, limit = pageSize)
                 _images.value = _images.value + response.take(pageSize - _images.value.size)
@@ -94,6 +98,7 @@ class ImageViewModel : ViewModel() {
                 _errorMessage.value = "An unknown error occurred."
             } finally {
                 _isLoading.value = false
+                isSetPageCalled= false
             }
         }
     }
