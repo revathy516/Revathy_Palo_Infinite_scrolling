@@ -14,9 +14,9 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.imageGallery.ui.ImageItem
 import com.example.imageGallery.data.ApiService
 import com.example.imageGallery.network.RetrofitInstance
+import com.example.imageGallery.ui.ImageItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -125,8 +125,10 @@ class ImageViewModel : ViewModel() {
                 val bitmap = withContext(Dispatchers.IO) {
                     BitmapFactory.decodeStream(URL(image.download_url).openStream())
                 }
-                FileOutputStream(file).use { fos ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+                withContext(Dispatchers.IO) {
+                    FileOutputStream(file).use { fos ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+                    }
                 }
                 Toast.makeText(context, "Successfully Saved", Toast.LENGTH_SHORT).show()
             } catch (e: IOException) {
@@ -153,8 +155,10 @@ class ImageViewModel : ViewModel() {
                 }
 
                 val file = File(context.cacheDir, "image_to_share.jpg")
-                FileOutputStream(file).use { fos ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+                withContext(Dispatchers.IO) {
+                    FileOutputStream(file).use { fos ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+                    }
                 }
 
                 val uri = FileProvider.getUriForFile(

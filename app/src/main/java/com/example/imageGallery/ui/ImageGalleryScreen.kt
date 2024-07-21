@@ -111,7 +111,6 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
 
                             if (isLoading && images.isNotEmpty()) {
                                 item(span = { GridItemSpan(maxCurrentLineSpan) }) {
-                                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                                 }
                             }
                         }
