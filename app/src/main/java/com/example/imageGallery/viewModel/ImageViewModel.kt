@@ -7,23 +7,30 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Environment
-import androidx.compose.runtime.mutableStateOf
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.imageGallery.ui.ImageItem
 import com.example.imageGallery.data.ApiService
 import com.example.imageGallery.network.RetrofitInstance
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URL
 
+/**
+ * ViewModel class to do logic for displaying the items , setting the pageSize by user and save, share functionality.
+ */
 class ImageViewModel : ViewModel() {
 
     private val _images = MutableStateFlow<List<ImageItem>>(emptyList())
@@ -38,12 +45,18 @@ class ImageViewModel : ViewModel() {
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> get() = _isRefreshing
 
+    private val _requestPermission = MutableLiveData(false)
+    val requestPermission: LiveData<Boolean> get() = _requestPermission
+
     var pageSize = 20
         private set
     private var currentPage = 1
     private var hasMoreData = true
+    private var isSetPageCalled= false
 
     private val apiService = RetrofitInstance.getRetrofitInstance().create(ApiService::class.java)
+
+     var pendingImageItem: ImageItem? = null
 
     init {
         loadImages()
@@ -53,6 +66,7 @@ class ImageViewModel : ViewModel() {
         pageSize = size
         currentPage = 1
         hasMoreData = true
+        isSetPageCalled = true
         _images.value = _images.value.take(pageSize)
         loadImages()
     }
@@ -60,7 +74,9 @@ class ImageViewModel : ViewModel() {
     fun loadImages() {
         if (!hasMoreData) return
         viewModelScope.launch {
-           // _isLoading.value = true
+            if(!isSetPageCalled){
+            _isLoading.value = true
+            }
             try {
                 val response = apiService.fetchImages(page = currentPage, limit = pageSize)
                 _images.value = _images.value + response.take(pageSize - _images.value.size)
@@ -85,6 +101,7 @@ class ImageViewModel : ViewModel() {
                 _errorMessage.value = "An unknown error occurred."
             } finally {
                 _isLoading.value = false
+                isSetPageCalled= false
             }
         }
     }
@@ -97,36 +114,49 @@ class ImageViewModel : ViewModel() {
     }
 
     fun saveImage(image: ImageItem, context: Context) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            // Handle permission request here
-            return
-        }
         viewModelScope.launch {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                // Request permission if not granted
+                return@launch
+            }
+
             val file = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "saved_image.jpg")
             try {
-                val bitmap = BitmapFactory.decodeStream(URL(image.download_url).openStream())
+                val bitmap = withContext(Dispatchers.IO) {
+                    BitmapFactory.decodeStream(URL(image.download_url).openStream())
+                }
                 FileOutputStream(file).use { fos ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
                 }
-                // Notify user of successful save, e.g., with a Toast
+                Toast.makeText(context, "Successfully Saved", Toast.LENGTH_SHORT).show()
             } catch (e: IOException) {
                 // Handle error, e.g., show Toast
+                Toast.makeText(context, "Failed to share image", Toast.LENGTH_SHORT).show()
+                e.printStackTrace()
             }
         }
     }
 
     fun shareImage(image: ImageItem, context: Context) {
         viewModelScope.launch {
+            // Check for permissions
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 // Handle permission request here
-                //return
+                // You can show a message to the user or request permission
+                return@launch
             }
-            val file = File(context.cacheDir, "image_to_share.jpg")
+
+            // Perform network operation in a background thread
             try {
-                val bitmap = BitmapFactory.decodeStream(URL(image.download_url).openStream())
+                val bitmap = withContext(Dispatchers.IO) {
+                    BitmapFactory.decodeStream(URL(image.download_url).openStream())
+                }
+
+                val file = File(context.cacheDir, "image_to_share.jpg")
                 FileOutputStream(file).use { fos ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
                 }
+
                 val uri = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.fileprovider",
@@ -139,8 +169,21 @@ class ImageViewModel : ViewModel() {
                 }
                 context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
             } catch (e: IOException) {
-                // Handle error, e.g., show Toast
+                e.printStackTrace()
+                Toast.makeText(context, "Failed to share image", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    fun handlePermissionResult(context: Context, isGranted: Boolean) {
+        if (isGranted) {
+            pendingImageItem?.let {
+                saveImage(it, context)
+            }
+        } else {
+            Toast.makeText(context, "Permission denied", Toast.LENGTH_SHORT).show()
+        }
+        pendingImageItem = null
+        _requestPermission.value = false
     }
 }

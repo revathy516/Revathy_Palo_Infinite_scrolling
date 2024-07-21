@@ -1,10 +1,11 @@
 package com.example.imageGallery.ui
 
+import android.Manifest
 import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.widget.Toast
+import android.content.pm.PackageManager
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,26 +18,32 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.imageGallery.R
 import com.example.imageGallery.viewModel.ImageViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
-import androidx.core.content.FileProvider
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.net.URL
 
+/**
+ * UI to display the images in recyclerview with infinite loading  using jetpack compose library.
+ */
 @Composable
 fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
     val context = LocalContext.current
     val images by viewModel.images.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    var pageSize by remember { mutableStateOf(20) }
+    var pageSizeInput by remember { mutableStateOf("20") } //Default value of pageSize to be displayed
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+
+    // Launcher for permission request
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        viewModel.handlePermissionResult(context, isGranted)
+    }
 
     Surface(color = MaterialTheme.colors.background) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -46,15 +53,20 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextField(
-                    value = pageSize.toString(),
+                    value = pageSizeInput,
                     onValueChange = { newSize ->
-                        pageSize = newSize.toIntOrNull() ?: 20
+                        // Update the input value
+                        pageSizeInput = newSize
                     },
                     label = { Text("Page Size") },
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = { viewModel.setPageSize(pageSize) }) {
+                Button(onClick = {
+                    // Convert input to integer and set page size
+                    val newSize = pageSizeInput.toIntOrNull() ?: 20
+                    viewModel.setPageSize(newSize)
+                }) {
                     Text("Set Page Size")
                 }
             }
@@ -62,19 +74,11 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
             // Error handling
             if (errorMessage != null) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = errorMessage!!,
-                            color = MaterialTheme.colors.error,
-                            style = MaterialTheme.typography.h6
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = errorMessage!!, color = MaterialTheme.colors.error)
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(onClick = { viewModel.loadImages() }) {
                             Text(text = "Retry")
@@ -89,36 +93,25 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
                     onRefresh = { viewModel.refreshImages() }
                 ) {
                     if (images.isEmpty() && isLoading) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                         }
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             items(images.size) { index ->
                                 if (index == images.size - 1 && !isLoading) {
                                     viewModel.loadImages()
                                 }
-                                ImageItem(image = images[index], viewModel = viewModel, context = context)
+                                ImageItem(image = images[index], viewModel = viewModel, context = context, permissionLauncher = permissionLauncher)
                             }
 
                             if (isLoading && images.isNotEmpty()) {
                                 item(span = { GridItemSpan(maxCurrentLineSpan) }) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator()
-                                    }
+                                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                                 }
                             }
                         }
@@ -129,9 +122,11 @@ fun ImageGalleryScreen(viewModel: ImageViewModel = viewModel()) {
     }
 }
 
-
+/**
+ * UI function to construct and display each item in the grid recyclerView.
+ */
 @Composable
-fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context) {
+fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context, permissionLauncher: ManagedActivityResultLauncher<String, Boolean>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -163,42 +158,23 @@ fun ImageItem(image: ImageItem, viewModel: ImageViewModel, context: Context) {
                 contentDescription = "Save",
                 modifier = Modifier
                     .size(24.dp)
-                    .clickable { viewModel.saveImage(image, context) }
+                    .clickable {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                            viewModel.pendingImageItem = image
+                            permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        } else {
+                            viewModel.saveImage(image, context)
+                        }
+                    }
             )
             Image(
                 painter = painterResource(R.drawable.ic_share),
                 contentDescription = "Share",
                 modifier = Modifier
                     .size(24.dp)
-                    .clickable { shareImage(image, context) }
+                    .clickable { viewModel.shareImage(image, context) }
             )
         }
-    }
-}
-
-private fun shareImage(image: ImageItem, context: Context) {
-    val file = File(context.cacheDir, "image_to_share.jpg")
-    try {
-        val bitmap = BitmapFactory.decodeStream(URL(image.download_url).openStream())
-        FileOutputStream(file).use { fos ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
-        }
-
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
-        val shareIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_STREAM, uri)
-            type = "image/jpeg"
-        }
-
-        context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
-    } catch (e: IOException) {
-        e.printStackTrace()
-        Toast.makeText(context, "Failed to share image", Toast.LENGTH_SHORT).show()
     }
 }
 
